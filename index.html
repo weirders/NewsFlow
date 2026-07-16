@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NewsFlow</title>
+<style>
+:root{
+  --bg:#f1f5f9;--surface:#fff;--border:#e2e8f0;--text:#0f172a;--muted:#64748b;
+  --accent:#3b82f6;--hover:#f8fafc;--sel-bg:#eff6ff;--sel-border:#3b82f6;
+}
+.dark{
+  --bg:#0f172a;--surface:#1e293b;--border:#334155;--text:#f1f5f9;--muted:#94a3b8;
+  --accent:#60a5fa;--hover:#263045;--sel-bg:#1e3a5f;--sel-border:#60a5fa;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font:14px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+
+/* ── header ── */
+#header{background:var(--surface);border-bottom:1px solid var(--border);padding:9px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap}
+h1{font-size:15px;font-weight:700;white-space:nowrap;margin-right:4px}
+#search{flex:1;min-width:160px;padding:5px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px}
+#search:focus{outline:none;border-color:var(--accent)}
+.hbtn{background:none;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;color:var(--text);font-size:13px;line-height:1}
+.hbtn:hover{background:var(--hover)}.hbtn:disabled{opacity:.4;cursor:default}
+
+/* ── tabs ── */
+#tabs{background:var(--surface);border-bottom:1px solid var(--border);padding:0 10px;display:flex;overflow-x:auto;flex-shrink:0;scrollbar-width:none}
+#tabs::-webkit-scrollbar{display:none}
+.tab{padding:7px 11px;border:none;border-bottom:2px solid transparent;background:none;cursor:pointer;color:var(--muted);font-size:12.5px;white-space:nowrap}
+.tab.active{color:var(--accent);border-bottom-color:currentColor}
+.tab-badge{display:inline-block;background:currentColor;color:var(--bg);border-radius:9px;padding:0 5px;font-size:10px;margin-left:3px;font-weight:700;opacity:.8}
+
+/* ── toolbar ── */
+#toolbar{background:var(--surface);border-bottom:1px solid var(--border);padding:6px 14px;display:flex;gap:8px;align-items:center;flex-shrink:0;flex-wrap:wrap;font-size:12px}
+#toolbar select{padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:12px}
+#toolbar label{display:flex;align-items:center;gap:4px;color:var(--muted);cursor:pointer}
+#status{margin-left:auto;color:var(--muted);font-size:11px}
+#errBadge{background:#fef2f2;color:#ef4444;border:1px solid #fecaca;border-radius:9px;padding:1px 7px;font-size:11px;cursor:pointer}
+
+/* ── two-pane body ── */
+#body{flex:1;min-height:0;display:flex;overflow:hidden}
+
+/* ── list pane ── */
+#pane-list{width:34%;min-width:240px;max-width:400px;overflow-y:auto;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:2px;padding:8px}
+#pane-list::-webkit-scrollbar{width:4px}
+#pane-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* ── article cards (unread) ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 11px;cursor:pointer;display:flex;align-items:flex-start;gap:8px;transition:background .1s,border-color .1s}
+.card:hover{background:var(--hover)}
+.card.selected{border-color:var(--sel-border);background:var(--sel-bg)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-top:5px}
+.card-body{flex:1;min-width:0}
+.card-title{font-weight:600;font-size:13px;line-height:1.35;display:block;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
+.card-meta{font-size:11px;color:var(--muted);margin-top:4px;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.card-thumb{width:54px;height:40px;object-fit:cover;border-radius:4px;flex-shrink:0}
+
+/* ── read pills ── */
+.card.read{border-color:transparent;border-radius:20px;padding:3px 10px;align-items:center;gap:6px;background:transparent}
+.card.read:hover{background:var(--hover)}
+.card.read.selected{background:var(--sel-bg)}
+.card.read .dot{background:none;border:1.5px solid var(--muted);flex-shrink:0;margin-top:0}
+.card.read .card-title{font-weight:400;font-size:12px;color:var(--muted);-webkit-line-clamp:1;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.card.read .full-meta,.card.read .card-thumb{display:none}
+.card.read .pill-meta{display:flex !important;align-items:center;gap:4px;flex-shrink:0}
+.pill-meta{display:none}
+
+/* ── source badge ── */
+.src-badge{display:inline-block;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:600;white-space:nowrap;border:1px solid transparent}
+
+/* ── detail pane (flex column so iframe fills remaining height) ── */
+#pane-detail{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden}
+#detail-placeholder{flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:15px;text-align:center;line-height:2}
+#detail-view{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+/* compact bar above the iframe */
+.frame-bar{flex-shrink:0;display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--border);background:var(--surface);min-height:42px;flex-wrap:nowrap;overflow:hidden}
+.frame-title{flex:1;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);text-decoration:none;min-width:0}
+.frame-title:hover{color:var(--accent)}
+.frame-meta{font-size:11px;color:var(--muted);white-space:nowrap;flex-shrink:0}
+.frame-btns{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.frame-btns a,.frame-btns button{padding:3px 8px;border:1px solid var(--border);border-radius:5px;font-size:12px;color:var(--text);background:none;cursor:pointer;white-space:nowrap;text-decoration:none;line-height:1.4}
+.frame-btns a:hover,.frame-btns button:hover{background:var(--hover)}
+/* the article iframe */
+.article-frame{flex:1;border:none;min-height:0;width:100%;background:#fff;display:block}
+/* fallback when site blocks iframe embedding (Live mode) */
+.frame-blocked{flex:1;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:32px;text-align:center;color:var(--muted)}
+.frame-blocked .open-btn{padding:10px 20px;border-radius:8px;background:var(--accent,#3b82f6);color:#fff;text-decoration:none;font-size:14px;font-weight:600}
+.frame-blocked .open-btn:hover{opacity:.85}
+
+/* ── reader mode (clean extracted article — no popups, no embedding blocks) ── */
+.reader{flex:1;overflow-y:auto;padding:24px 32px;font-size:15px;line-height:1.7;color:var(--text)}
+.reader-inner{max-width:740px;margin:0 auto}
+.reader h1,.reader h2,.reader h3,.reader h4{line-height:1.3;margin:1.2em 0 .5em;font-weight:700}
+.reader h1{font-size:1.6em}.reader h2{font-size:1.35em}.reader h3{font-size:1.15em}
+.reader p{margin:0 0 1em}
+.reader a{color:var(--accent);text-decoration:underline}
+.reader img{max-width:100%;height:auto;border-radius:8px;margin:.8em 0;display:block}
+.reader ul,.reader ol{margin:0 0 1em 1.4em}
+.reader li{margin:.3em 0}
+.reader blockquote{border-left:3px solid var(--border);margin:0 0 1em;padding:.2em 0 .2em 1em;color:var(--muted)}
+.reader pre{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:12px;overflow-x:auto;margin:0 0 1em}
+.reader code{background:var(--bg);border-radius:4px;padding:1px 4px;font:13px/1.5 monospace}
+.reader pre code{background:none;padding:0}
+.reader hr{border:none;border-top:1px solid var(--border);margin:1.5em 0}
+.reader-status{padding:40px;text-align:center;color:var(--muted);font-size:14px;line-height:2}
+.spinner{display:inline-block;width:15px;height:15px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:7px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── settings modal ── */
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;display:flex;align-items:center;justify-content:center}
+#modal[hidden]{display:none}
+.modal-box{background:var(--surface);border-radius:12px;padding:20px;width:min(680px,92vw);max-height:88vh;display:flex;flex-direction:column;gap:10px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.modal-header{display:flex;align-items:center;justify-content:space-between}
+.modal-header h3{font-size:15px;font-weight:700}
+.modal-hint{font-size:12px;color:var(--muted);line-height:1.6}
+#cfgTextarea{flex:1;min-height:320px;font:12px/1.5 monospace;border:1px solid var(--border);border-radius:6px;padding:10px;background:var(--bg);color:var(--text);resize:vertical;tab-size:2}
+#cfgTextarea:focus{outline:none;border-color:var(--accent)}
+.modal-footer{display:flex;gap:8px;flex-wrap:wrap}
+.modal-footer button{padding:6px 14px;border:1px solid var(--border);border-radius:6px;font-size:13px;cursor:pointer;background:none;color:var(--text)}
+.modal-footer button:hover{background:var(--hover)}
+#applyBtn{background:var(--accent);color:#fff;border-color:var(--accent)}
+#applyBtn:hover{opacity:.9;background:var(--accent)}
+#errDetails{font-size:12px;color:#ef4444;font-family:monospace;white-space:pre-wrap;max-height:120px;overflow-y:auto;background:#fef2f2;border-radius:6px;padding:8px;display:none}
+
+/* ── empty / loading ── */
+.list-msg{padding:20px;color:var(--muted);font-size:13px;text-align:center}
+
+/* ── mobile: detail slides in ── */
+@media(max-width:640px){
+  #body{position:relative}
+  #pane-list{width:100%;max-width:none;border-right:none}
+  #pane-detail{position:absolute;inset:0;background:var(--surface);transform:translateX(100%);transition:transform .2s;z-index:10;padding:16px}
+  #pane-detail.open{transform:translateX(0)}
+  #back-btn{display:flex !important}
+}
+#back-btn{display:none;align-items:center;gap:6px;padding:4px 0;margin-bottom:12px;background:none;border:none;cursor:pointer;color:var(--accent);font-size:13px}
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1>NewsFlow</h1>
+  <input id="search" type="search" placeholder="search… space=AND  |=OR  -exclude  &quot;phrase&quot;">
+  <button class="hbtn" id="settingsBtn" title="Config / Export / Import">⚙</button>
+  <button class="hbtn" id="darkBtn" title="Toggle dark mode">◑</button>
+  <button class="hbtn" id="refreshBtn" title="Refresh">↺</button>
+</div>
+
+<div id="tabs"></div>
+
+<div id="toolbar">
+  <select id="rangeSelect">
+    <option value="1">Last 24h</option>
+    <option value="2">Last 48h</option>
+    <option value="7" selected>Last 7d</option>
+    <option value="30">Last 30d</option>
+    <option value="0">All time</option>
+  </select>
+  <select id="sortSelect">
+    <option value="date">Newest</option>
+    <option value="score">Top score</option>
+    <option value="comments">Most comments</option>
+  </select>
+  <label><input id="hideReadCb" type="checkbox"> Hide read</label>
+  <span id="errBadge" hidden></span>
+  <span id="status"></span>
+</div>
+
+<div id="body">
+  <div id="pane-list"><p class="list-msg">Loading…</p></div>
+  <div id="pane-detail">
+    <button id="back-btn">← Back</button>
+    <div id="detail-placeholder">📰<br>Select an article to read</div>
+    <div id="detail-view" style="display:none"></div>
+  </div>
+</div>
+
+<div id="modal" hidden>
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Config · Export / Import</h3>
+      <button class="hbtn" id="closeModalBtn">✕</button>
+    </div>
+    <p class="modal-hint">
+      Add topics and sources here. Copy JSON to share across devices — paste it on another device and click Apply.<br>
+      Source types: <code>hn</code>, <code>reddit</code>, <code>rss</code>. Articles open in <b>Reader</b> view (clean extraction — no popups or cookie banners); use the <b>🌐 Live</b> toggle for the real site. Set <code>fetchTimeoutMs</code> to 0 to wait indefinitely (recommended), or a number like 30000 to cap per-source wait. Custom <code>fetch</code> functions only work in the HTML file, not JSON export.
+    </p>
+    <textarea id="cfgTextarea" spellcheck="false"></textarea>
+    <div id="errDetails"></div>
+    <div class="modal-footer">
+      <button id="copyBtn">Copy to clipboard</button>
+      <button id="applyBtn">Apply &amp; Reload</button>
+      <button id="resetBtn">Reset to defaults</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DEFAULT CONFIG — edit this to set your default topics/sources
+// (or use ⚙ → Apply & Reload for per-device overrides)
+// ============================================================
+const DEFAULT_CONFIG = {
+  refreshIntervalMs: 30 * 60 * 1000,
+  fetchTimeoutMs:    0,        // ms per source before giving up — 0 = wait indefinitely (recommended)
+  topics: [
+    {
+      id: 'tech',
+      name: 'Technology',
+      color: '#3b82f6',
+      sources: [
+        { type: 'hn',     tags: 'front_page', limit: 30 },
+        { type: 'reddit', subreddit: 'programming' },
+        { type: 'rss',    url: 'https://feeds.arstechnica.com/arstechnica/technology-lab', name: 'Ars Technica' },
+        { type: 'rss',    url: 'https://www.theverge.com/rss/index.xml', name: 'The Verge' },
+      ]
+    },
+    {
+      id: 'ai',
+      name: 'AI',
+      color: '#8b5cf6',
+      sources: [
+        { type: 'hn',     tags: 'story', query: 'AI LLM GPT', limit: 20 },
+        { type: 'reddit', subreddit: 'MachineLearning' },
+        { type: 'reddit', subreddit: 'LocalLLaMA' },
+      ]
+    },
+    {
+      id: 'world',
+      name: 'World News',
+      color: '#10b981',
+      sources: [
+        { type: 'rss', url: 'https://feeds.bbci.co.uk/news/world/rss.xml',                        name: 'BBC World' },
+        { type: 'rss', url: 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml',             name: 'NY Times World' },
+        { type: 'rss', url: 'https://www.theguardian.com/world/rss',                              name: 'Guardian World' },
+      ]
+    },
+    // ── Add more topics like this: ──────────────────────────
+    // { id: 'finance', name: 'Finance', color: '#f59e0b', sources: [
+    //   { type: 'reddit', subreddit: 'investing' },
+    //   { type: 'rss', url: 'https://feeds.bloomberg.com/markets/news.rss', name: 'Bloomberg Markets' },
+    // ]},
+    // { id: 'science', name: 'Science', color: '#06b6d4', sources: [
+    //   { type: 'reddit', subreddit: 'science' },
+    //   { type: 'rss', url: 'https://www.sciencedaily.com/rss/all.xml', name: 'ScienceDaily' },
+    // ]},
+  ]
+};
+// ============================================================
+
+// Runtime config: localStorage overrides DEFAULT_CONFIG
+let CONFIG;
+try {
+  const _stored = JSON.parse(localStorage.getItem('nf_config') || 'null');
+  CONFIG = _stored ? { ...DEFAULT_CONFIG, ..._stored } : DEFAULT_CONFIG;
+} catch(e) { CONFIG = DEFAULT_CONFIG; }
+
+// ── State ──────────────────────────────────────────────────
+let articles    = [];
+let readIds     = new Set(JSON.parse(localStorage.getItem('nf_read') || '[]'));
+let selectedId  = null;
+let sourceErrors = [];   // [{label, msg}]
+const readerCache = {};  // id → rendered reader HTML (avoid refetch on re-render)
+const viewMode    = {};  // id → 'reader' | 'live'   (per-article pane mode)
+let _curDetail    = {};  // {id, mode} currently mounted — guards needless rebuilds
+let loading       = false; // sources still being fetched (drives status + spinner)
+let filters = { topic: 'all', range: 7, hideRead: false, sort: 'date', dark: false };
+Object.assign(filters, JSON.parse(localStorage.getItem('nf_filters') || '{}'));
+
+// Apply saved filters to controls
+document.getElementById('rangeSelect').value  = filters.range;
+document.getElementById('sortSelect').value   = filters.sort;
+document.getElementById('hideReadCb').checked = filters.hideRead;
+if (filters.dark) document.documentElement.classList.add('dark');
+
+const saveRead    = () => localStorage.setItem('nf_read',    JSON.stringify([...readIds]));
+const saveFilters = () => localStorage.setItem('nf_filters', JSON.stringify(filters));
+const setFilter   = (k, v) => { filters[k] = v; saveFilters(); renderAll(); };
+
+// ── Source colors ──────────────────────────────────────────
+const SRC_COLORS = { 'Hacker News': '#f97316' };
+const COLOR_POOL = ['#3b82f6','#ef4444','#10b981','#a855f7','#ec4899','#06b6d4','#f59e0b','#84cc16','#f43f5e'];
+const _cc = {};
+function srcColor(name) {
+  if (name in SRC_COLORS) return SRC_COLORS[name];
+  if (name in _cc) return _cc[name];
+  let h = 5381;
+  for (let i = 0; i < name.length; i++) h = ((h << 5) + h + name.charCodeAt(i)) >>> 0;
+  return _cc[name] = COLOR_POOL[h % COLOR_POOL.length];
+}
+function srcBadge(name) {
+  const c = srcColor(name);
+  let abbr = name;
+  if (name === 'Hacker News') abbr = 'HN';
+  else if (name.length > 14)  abbr = name.slice(0, 13) + '…';
+  return `<span class="src-badge" style="background:${c}1a;color:${c};border-color:${c}44">${esc(abbr)}</span>`;
+}
+
+// ── Utils ──────────────────────────────────────────────────
+const stripHtml = s => { const d = document.createElement('div'); d.innerHTML = s; return d.textContent || ''; };
+const safeUrl   = u => u && /^https?:\/\//.test(u) ? u : null;
+const esc       = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function age(d) {
+  const s = (Date.now() - +d) / 1000;
+  return s < 3600 ? Math.round(s / 60) + 'm' : s < 86400 ? Math.round(s / 3600) + 'h' : Math.round(s / 86400) + 'd';
+}
+// Robust date parsing. rss2json emits "YYYY-MM-DD HH:MM:SS" (space, not ISO 'T')
+// which Safari/strict parsers reject as Invalid Date, and sometimes null. It also
+// misreads DD/MM dates (e.g. OSHA's "12/06/2026") into a future month — clamp those
+// to now so they don't show negative ages or pin to the top. Unparseable → now.
+function parseDate(s) {
+  if (!s) return new Date();
+  let d = new Date(s);
+  if (!isFinite(+d)) d = new Date(String(s).replace(' ', 'T')); // space → 'T' for strict parsers
+  if (!isFinite(+d)) return new Date();
+  if (+d > Date.now() + 864e5) return new Date();               // >1 day ahead = feed/tz artifact
+  return d;
+}
+
+// ── Minimal Markdown → HTML (for reader mode + text posts) ──
+// ponytail: handles the subset Jina/Reddit emit (headings, bold, italic,
+// links, images, lists, code, blockquote, hr). Not a full CommonMark parser;
+// reference-style links degrade to literal text — fine for article bodies.
+function mdToHtml(md) {
+  const e = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const u = url => /^https?:\/\//i.test(url) ? url.replace(/"/g, '%22') : '#';
+  const inline = t => e(t)
+    .replace(/!\[([^\]]*)\]\(([^)\s]+)[^)]*\)/g, (_, a, l) => `<img src="${u(l)}" alt="${a.replace(/"/g,'')}" loading="lazy">`)
+    .replace(/\[([^\]]+)\]\(([^)\s]+)[^)]*\)/g,   (_, x, l) => `<a href="${u(l)}" target="_blank" rel="noopener noreferrer">${x}</a>`)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  const out = []; let para = [], list = null, code = false, buf = [];
+  const flushP = () => { if (para.length) { out.push('<p>' + inline(para.join(' ')) + '</p>'); para = []; } };
+  const flushL = () => { if (list) { out.push('</' + list + '>'); list = null; } };
+  for (const line of md.split('\n')) {
+    if (/^\s*```/.test(line)) {
+      if (code) { out.push('<pre><code>' + e(buf.join('\n')) + '</code></pre>'); buf = []; code = false; }
+      else { flushP(); flushL(); code = true; }
+      continue;
+    }
+    if (code) { buf.push(line); continue; }
+    const t = line.trim(); let m;
+    if (!t)                                   { flushP(); flushL(); }
+    else if (m = t.match(/^(#{1,6})\s+(.*)$/)){ flushP(); flushL(); out.push(`<h${m[1].length}>${inline(m[2])}</h${m[1].length}>`); }
+    else if (/^(-{3,}|\*{3,}|_{3,})$/.test(t)){ flushP(); flushL(); out.push('<hr>'); }
+    else if (m = t.match(/^>\s?(.*)$/))       { flushP(); flushL(); out.push('<blockquote>' + inline(m[1]) + '</blockquote>'); }
+    else if (m = t.match(/^[-*+]\s+(.*)$/))   { flushP(); if (list !== 'ul') { flushL(); out.push('<ul>'); list = 'ul'; } out.push('<li>' + inline(m[1]) + '</li>'); }
+    else if (m = t.match(/^\d+[.)]\s+(.*)$/)) { flushP(); if (list !== 'ol') { flushL(); out.push('<ol>'); list = 'ol'; } out.push('<li>' + inline(m[1]) + '</li>'); }
+    else                                      { flushL(); para.push(t); }
+  }
+  if (code) out.push('<pre><code>' + e(buf.join('\n')) + '</code></pre>');
+  flushP(); flushL();
+  return out.join('\n');
+}
+
+// ── Fetch with optional timeout ────────────────────────────
+// fetchTimeoutMs: 0 = no timeout (wait as long as the browser allows)
+function timedFetch(url, opts) {
+  const ms = CONFIG.fetchTimeoutMs;
+  if (!ms) return fetch(url, opts);
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), ms);
+  return fetch(url, { ...opts, signal: ac.signal }).finally(() => clearTimeout(timer));
+}
+
+// ── Reader: fetch clean article via Jina Reader ────────────
+// r.jina.ai extracts the main content server-side: no X-Frame-Options
+// blocking, no cookie banners / popups / ads, handles JS-rendered pages.
+// CORS-open (echoes Origin). Default output is Markdown.
+async function fetchReader(url) {
+  const res = await timedFetch('https://r.jina.ai/' + url); // raw append: Jina parses full suffix
+  if (!res.ok) throw new Error(`reader HTTP ${res.status}`);
+  let md = await res.text();
+  const i = md.indexOf('Markdown Content:');      // strip Jina's Title/URL/Published preamble
+  if (i >= 0) md = md.slice(i + 'Markdown Content:'.length);
+  return md.trim();
+}
+
+// ── Fetchers ───────────────────────────────────────────────
+async function fetchHN(src, topicId) {
+  const q = src.query ? `&query=${encodeURIComponent(src.query)}` : '';
+  const res = await timedFetch(`https://hn.algolia.com/api/v1/search?tags=${src.tags || 'front_page'}&hitsPerPage=${src.limit || 30}${q}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const { hits } = await res.json();
+  return hits.map(h => ({
+    id:         'hn_' + h.objectID,
+    title:      h.title || '(no title)',
+    url:        safeUrl(h.url) || `https://news.ycombinator.com/item?id=${h.objectID}`,
+    image:      null,
+    body:       stripHtml(h.story_text || '').slice(0, 2000),
+    date:       parseDate(h.created_at),
+    score:      h.points,
+    comments:   h.num_comments,
+    commentUrl: `https://news.ycombinator.com/item?id=${h.objectID}`,
+    source:     'Hacker News', topic: topicId,
+  }));
+}
+
+async function fetchReddit(src, topicId) {
+  // Reddit 403s direct JSON from browsers, and every CORS proxy tested
+  // (allorigins, corsproxy.io, codetabs) is blocked/rate-limited from a
+  // file:// origin. rss2json on the subreddit's .rss feed is the one reliable
+  // CORS path. ponytail: no score/comments via RSS — rich JSON needs an API key.
+  const sub  = src.subreddit;
+  const res  = await timedFetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(`https://www.reddit.com/r/${sub}/.rss`)}`);
+  const data = await res.json();
+  if (data.status !== 'ok' || !Array.isArray(data.items)) throw new Error(data.message || 'Reddit feed unavailable');
+  return data.items.map(item => ({
+    id:         'reddit_' + (item.guid || item.link),
+    title:      item.title || '(no title)',
+    url:        safeUrl(item.link) || '',
+    image:      safeUrl(item.thumbnail) || null,
+    body:       stripHtml(item.content || item.description || '').slice(0, 2000),
+    date:       parseDate(item.pubDate),
+    score:      null, comments: null,
+    commentUrl: safeUrl(item.link) || null,
+    source:     'r/' + sub, topic: topicId,
+  }));
+}
+
+async function fetchRSS(src, topicId) {
+  // rss2json is the one reliable CORS-friendly RSS→JSON service from a browser
+  // (allorigins/corsproxy/codetabs are all CORS-blocked from file://).
+  // ponytail: single dependency; if it rate-limits, add &api_key=… or a 2nd service.
+  const res  = await timedFetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(src.url)}`);
+  const data = await res.json();
+  if (data.status !== 'ok' || !Array.isArray(data.items)) throw new Error(data.message || `feed error (${data.status || res.status})`);
+  const feedName = src.name || data.feed?.title || src.url;
+  return data.items.map(item => ({
+    id:         item.link || item.guid,
+    title:      item.title || '(no title)',
+    url:        safeUrl(item.link) || '',
+    image:      safeUrl(item.thumbnail) || null,
+    body:       stripHtml(item.content || item.description || '').slice(0, 2000),
+    date:       parseDate(item.pubDate),
+    score:      null, comments: null, commentUrl: null,
+    source:     feedName, topic: topicId,
+  }));
+}
+
+// Progressive: each source renders the moment it resolves, so fast sources (HN)
+// appear in ~1s instead of waiting on the slowest. A hung source can't block the
+// rest. New items accumulate and replace the previous set on first arrival, so an
+// in-progress reading session survives the 30-min auto-refresh without flicker.
+async function fetchAll() {
+  sourceErrors = [];
+  const acc = [], seen = new Set();
+  const merge = items => {
+    for (const a of items) if (a.id && !seen.has(a.id)) { seen.add(a.id); acc.push(a); }
+    articles = acc;
+    renderAll();
+  };
+  const jobs = [];
+  CONFIG.topics.forEach(t => t.sources.forEach(s => {
+    const label = `${t.name} / ${s.name || s.subreddit || s.tags || s.url || s.type}`;
+    const fetcher =
+      s.type === 'hn'     ? fetchHN(s, t.id)     :
+      s.type === 'reddit' ? fetchReddit(s, t.id) :
+      s.type === 'rss'    ? fetchRSS(s, t.id)    :
+      s.type === 'custom' ? s.fetch(t.id)        : Promise.resolve([]);
+    jobs.push(fetcher.then(merge).catch(err => {
+      sourceErrors.push({ label, msg: err?.message || String(err) });
+      console.warn(`[NewsFlow] ${label} failed:`, err);
+      renderAll();
+    }));
+  }));
+  await Promise.allSettled(jobs);
+}
+
+// ── Search ─────────────────────────────────────────────────
+function makeFilter(q) {
+  if (!q.trim()) return () => true;
+  const ops = [], re = /"([^"]+)"|(\S+)/g;
+  let m;
+  while ((m = re.exec(q))) {
+    const raw = m[1] || m[2];
+    if (raw.startsWith('-'))    ops.push({ not: true, vals: [raw.slice(1).toLowerCase()] });
+    else if (raw.includes('|')) ops.push({ vals: raw.split('|').map(v => v.toLowerCase()) });
+    else                        ops.push({ vals: [raw.toLowerCase()] });
+  }
+  return a => {
+    const hay = (a.title + ' ' + a.body).toLowerCase();
+    return ops.every(op =>
+      op.not ? !op.vals.some(v => hay.includes(v))
+             :  op.vals.some(v => hay.includes(v))
+    );
+  };
+}
+
+// ── Render: tabs ───────────────────────────────────────────
+function renderTabs() {
+  const counts = {};
+  articles.forEach(a => { counts[a.topic] = (counts[a.topic] || 0) + (readIds.has(a.id) ? 0 : 1); });
+  const totalUnread = articles.filter(a => !readIds.has(a.id)).length;
+  const tab = (id, label, color) => {
+    const active = filters.topic === id;
+    const style  = active && color ? ` style="color:${color};border-bottom-color:${color}"` : '';
+    return `<button class="tab ${active ? 'active' : ''}" data-topic="${esc(id)}"${style}>${label}<span class="tab-badge">${id === 'all' ? totalUnread : counts[id] || 0}</span></button>`;
+  };
+  document.getElementById('tabs').innerHTML =
+    tab('all', 'All', '') +
+    CONFIG.topics.map(t => tab(t.id, esc(t.name), t.color)).join('');
+}
+
+// ── Render: list ───────────────────────────────────────────
+function getFiltered() {
+  const fn     = makeFilter(document.getElementById('search').value);
+  const cutoff = filters.range > 0 ? Date.now() - filters.range * 86400000 : 0;
+  return articles
+    .filter(a =>
+      (filters.topic === 'all' || a.topic === filters.topic) &&
+      (!cutoff || !isFinite(+a.date) || +a.date >= cutoff) &&
+      (!filters.hideRead || !readIds.has(a.id)) &&
+      fn(a)
+    )
+    .sort((a, b) =>
+      filters.sort === 'score'    ? (b.score    || 0) - (a.score    || 0) :
+      filters.sort === 'comments' ? (b.comments || 0) - (a.comments || 0) :
+      +b.date - +a.date
+    );
+}
+
+function renderList(items) {
+  const el = document.getElementById('pane-list');
+  if (!items.length) {
+    el.innerHTML = `<p class="list-msg">${loading ? '<span class="spinner"></span>Loading…' : 'No articles match your filters.'}</p>`;
+    return;
+  }
+  el.innerHTML = items.map(a => {
+    const read = readIds.has(a.id), sel = selectedId === a.id;
+    const scores = [a.score != null ? '★' + a.score : '', a.comments != null ? '💬' + a.comments : ''].filter(Boolean).join(' ');
+    const thumb = a.image ? `<img class="card-thumb" src="${esc(a.image)}" loading="lazy" onerror="this.remove()" alt="">` : '';
+    return `<div class="card ${read ? 'read' : ''} ${sel ? 'selected' : ''}" data-id="${esc(a.id)}">
+  <span class="dot"></span>
+  <div class="card-body">
+    <span class="card-title">${esc(a.title)}</span>
+    <div class="card-meta full-meta">
+      ${srcBadge(a.source)}
+      <span>${esc(age(a.date))}</span>
+      ${scores ? `<span>${esc(scores)}</span>` : ''}
+    </div>
+  </div>
+  ${thumb}
+  <div class="pill-meta">${srcBadge(a.source)}<span style="font-size:10px;color:var(--muted)">${esc(age(a.date))}</span></div>
+</div>`;
+  }).join('');
+}
+
+// ── Render: detail pane ────────────────────────────────────
+// Self-posts (Reddit text / HN Ask) render their body directly. External
+// articles default to Reader mode (clean extraction via Jina — no popups, no
+// embedding blocks); a toggle switches to the live site in an iframe.
+function renderDetail(a) {
+  const placeholder = document.getElementById('detail-placeholder');
+  const view        = document.getElementById('detail-view');
+
+  if (!a) {
+    placeholder.style.display = '';
+    view.style.display = 'none';
+    view.innerHTML = '';
+    _curDetail = {};
+    return;
+  }
+
+  const isTextPost = a.body && (
+    !a.url ||
+    a.url.includes('reddit.com/r/') ||
+    (a.url.includes('news.ycombinator.com') && a.commentUrl === a.url)
+  );
+  const mode = isTextPost ? 'text' : (viewMode[a.id] || 'reader');
+
+  // Already mounted for this article+mode → just refresh the read-toggle label
+  // (renderAll runs on every keystroke; never rebuild the iframe/reader needlessly).
+  if (_curDetail.id === a.id && _curDetail.mode === mode) {
+    const b = view.querySelector('.toggle-read-detail');
+    if (b) b.textContent = readIds.has(a.id) ? '✓ Read' : '○ Unread';
+    return;
+  }
+  _curDetail = { id: a.id, mode };
+
+  placeholder.style.display = 'none';
+  view.style.display = 'flex';
+
+  const scores = [
+    a.score    != null ? '★ ' + a.score    : '',
+    a.comments != null ? '💬 ' + a.comments : '',
+  ].filter(Boolean).join(' · ');
+
+  const readBtn    = `<button class="toggle-read-detail">${readIds.has(a.id) ? '✓ Read' : '○ Unread'}</button>`;
+  const openBtn    = a.url ? `<a href="${esc(a.url)}" target="_blank" rel="noopener noreferrer" title="Open original in new tab">↗ Open</a>` : '';
+  const discussBtn = (a.commentUrl && a.commentUrl !== a.url)
+    ? `<a href="${esc(a.commentUrl)}" target="_blank" rel="noopener noreferrer" title="Discussion">💬</a>` : '';
+  const modeBtn    = isTextPost ? '' :
+    `<button class="mode-toggle" title="Switch view">${mode === 'reader' ? '🌐 Live' : '📖 Reader'}</button>`;
+
+  let content;
+  if (mode === 'text')        content = `<div class="reader"><div class="reader-inner">${mdToHtml(a.body)}</div></div>`;
+  else if (mode === 'reader') content = `<div class="reader"><div class="reader-inner reader-target"><div class="reader-status"><span class="spinner"></span>Loading reader view…</div></div></div>`;
+  else /* live */             content = `<iframe class="article-frame" src="${esc(a.url)}" title="${esc(a.title)}"
+         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"></iframe>
+       <div class="frame-blocked">
+         <span>This site blocks embedding. Switch to 📖 Reader, or:</span>
+         <a class="open-btn" href="${esc(a.url)}" target="_blank" rel="noopener noreferrer">Read full article ↗</a>
+       </div>`;
+
+  view.innerHTML = `
+    <div class="frame-bar">
+      ${srcBadge(a.source)}
+      <a class="frame-title" href="${esc(a.url)}" target="_blank" rel="noopener noreferrer" title="${esc(a.title)}">${esc(a.title)}</a>
+      ${scores ? `<span class="frame-meta">${esc(scores)}</span>` : ''}
+      <span class="frame-meta">${esc(age(a.date))}</span>
+      <div class="frame-btns">${modeBtn}${openBtn}${discussBtn}${readBtn}</div>
+    </div>
+    ${content}`;
+
+  if (mode === 'reader') loadReader(a, view.querySelector('.reader-target'));
+  if (mode === 'live')   wireFrameFallback(view);
+}
+
+// Fetch + render the clean reader view (cached per article; race-guarded).
+async function loadReader(a, target) {
+  if (!target) return;
+  if (readerCache[a.id]) { target.innerHTML = readerCache[a.id]; return; }
+  try {
+    const md   = await fetchReader(a.url);
+    const html = mdToHtml(md) || (a.body ? mdToHtml(a.body) : '<p>(No readable content extracted.)</p>');
+    readerCache[a.id] = html;
+    if (selectedId === a.id) target.innerHTML = html;   // still selected?
+  } catch (e) {
+    if (selectedId === a.id) target.innerHTML =
+      `<div class="reader-status">Couldn't load reader view (${esc(e.message)}).<br>
+        <a href="${esc(a.url)}" target="_blank" rel="noopener noreferrer">Open original ↗</a></div>` +
+      (a.body ? mdToHtml(a.body) : '');
+  }
+}
+
+// Live-iframe mode: detect X-Frame-Options / CSP blocking and show fallback.
+function wireFrameFallback(view) {
+  const iframe   = view.querySelector('.article-frame');
+  const fallback = view.querySelector('.frame-blocked');
+  if (!iframe) return;
+  const show = () => { iframe.style.display = 'none'; fallback.style.display = 'flex'; };
+  const t0 = Date.now();
+  iframe.addEventListener('error', show);          // Firefox blocked / net errors
+  iframe.addEventListener('load', () => {
+    try {
+      const href = iframe.contentWindow?.location?.href;
+      if (href === 'about:blank' || href == null) show();
+    } catch (e) {
+      if (Date.now() - t0 < 300) show();           // Chrome's local error page loads <300ms
+    }
+  });
+}
+
+// ── Render all ─────────────────────────────────────────────
+let _rendering = false;
+function renderAll() {
+  if (_rendering) return;
+  _rendering = true;
+  renderTabs();
+  const items = getFiltered();
+  renderList(items);
+  // keep selectedId valid; deselect if filtered out (but never mid-refresh —
+  // the selected article may just not have been re-fetched yet)
+  if (selectedId && !items.find(a => a.id === selectedId)) {
+    if (!loading) { selectedId = null; renderDetail(null); }
+  } else if (selectedId) {
+    renderDetail(articles.find(a => a.id === selectedId));
+  }
+  // status
+  const errCount = sourceErrors.length;
+  const errBadge = document.getElementById('errBadge');
+  errBadge.hidden = errCount === 0;
+  errBadge.textContent = `⚠ ${errCount} source${errCount > 1 ? 's' : ''} failed`;
+  document.getElementById('status').textContent =
+    loading ? `Loading… ${articles.length} items` : `${articles.length} items`;
+  _rendering = false;
+}
+
+// ── Select article ─────────────────────────────────────────
+function selectArticle(id) {
+  selectedId = id;
+  const a = articles.find(x => x.id === id);
+  if (a && !readIds.has(id)) {
+    readIds.add(id);
+    saveRead();
+  }
+  renderAll(); // re-renders list (with .selected/.read classes) + detail pane
+  document.getElementById('pane-detail').classList.add('open'); // mobile slide-in
+}
+
+// ── Events ─────────────────────────────────────────────────
+document.addEventListener('click', e => {
+  // card click
+  const card = e.target.closest('.card[data-id]');
+  if (card && !e.target.closest('button')) {
+    selectArticle(card.dataset.id);
+    return;
+  }
+  // tab click
+  const tab = e.target.closest('.tab[data-topic]');
+  if (tab) { setFilter('topic', tab.dataset.topic); return; }
+  // toggle read button in detail pane
+  if (e.target.classList.contains('toggle-read-detail')) {
+    if (!selectedId) return;
+    if (readIds.has(selectedId)) readIds.delete(selectedId); else readIds.add(selectedId);
+    saveRead();
+    renderAll();
+    return;
+  }
+  // toggle Reader ⇄ Live site in detail pane
+  if (e.target.classList.contains('mode-toggle')) {
+    if (!selectedId) return;
+    viewMode[selectedId] = (viewMode[selectedId] || 'reader') === 'reader' ? 'live' : 'reader';
+    renderDetail(articles.find(x => x.id === selectedId));
+    return;
+  }
+  // error badge → open settings with error details
+  if (e.target.id === 'errBadge') { openSettings(true); return; }
+});
+
+document.getElementById('darkBtn').addEventListener('click', () => {
+  filters.dark = !filters.dark;
+  document.documentElement.classList.toggle('dark', filters.dark);
+  saveFilters();
+});
+document.getElementById('rangeSelect').addEventListener('change',  e => setFilter('range',   +e.target.value));
+document.getElementById('sortSelect').addEventListener('change',   e => setFilter('sort',     e.target.value));
+document.getElementById('hideReadCb').addEventListener('change',   e => setFilter('hideRead', e.target.checked));
+
+let _st;
+document.getElementById('search').addEventListener('input', () => { clearTimeout(_st); _st = setTimeout(renderAll, 150); });
+
+// back button on mobile
+document.getElementById('back-btn').addEventListener('click', () => {
+  document.getElementById('pane-detail').classList.remove('open');
+});
+
+// ── Settings modal ─────────────────────────────────────────
+function serializeCfg(cfg) {
+  // serialize without custom fetch functions (JSON.stringify skips them)
+  return JSON.stringify(cfg, null, 2);
+}
+
+function openSettings(showErrors = false) {
+  const modal   = document.getElementById('modal');
+  const ta      = document.getElementById('cfgTextarea');
+  const errDiv  = document.getElementById('errDetails');
+  ta.value = serializeCfg(CONFIG);
+  if (showErrors && sourceErrors.length) {
+    errDiv.style.display = 'block';
+    errDiv.textContent = sourceErrors.map(e => `✗ ${e.label}\n  ${e.msg}`).join('\n\n');
+  } else {
+    errDiv.style.display = 'none';
+  }
+  modal.hidden = false;
+}
+function closeSettings() { document.getElementById('modal').hidden = true; }
+
+document.getElementById('settingsBtn').addEventListener('click', () => openSettings());
+document.getElementById('closeModalBtn').addEventListener('click', closeSettings);
+document.getElementById('modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeSettings(); });
+
+document.getElementById('copyBtn').addEventListener('click', () => {
+  navigator.clipboard.writeText(document.getElementById('cfgTextarea').value)
+    .then(() => { document.getElementById('copyBtn').textContent = 'Copied!'; setTimeout(() => { document.getElementById('copyBtn').textContent = 'Copy to clipboard'; }, 1500); })
+    .catch(() => alert('Copy failed — select all and copy manually.'));
+});
+
+document.getElementById('applyBtn').addEventListener('click', () => {
+  let parsed;
+  try { parsed = JSON.parse(document.getElementById('cfgTextarea').value); }
+  catch(e) { alert('Invalid JSON: ' + e.message); return; }
+  if (!Array.isArray(parsed?.topics)) { alert('Config must have a "topics" array.'); return; }
+  localStorage.setItem('nf_config', JSON.stringify(parsed));
+  location.reload();
+});
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  if (!confirm('Reset to default config? This removes any imported config.')) return;
+  localStorage.removeItem('nf_config');
+  location.reload();
+});
+
+// ── Boot ───────────────────────────────────────────────────
+async function refresh() {
+  if (loading) return;
+  const btn = document.getElementById('refreshBtn');
+  btn.disabled = true;
+  loading = true;
+  renderAll();
+  try { await fetchAll(); }
+  catch (err) { console.error('[NewsFlow]', err); }
+  finally { loading = false; btn.disabled = false; renderAll(); }
+}
+
+document.getElementById('refreshBtn').addEventListener('click', refresh);
+refresh();
+setInterval(refresh, CONFIG.refreshIntervalMs);
+</script>
+</body>
+</html>
