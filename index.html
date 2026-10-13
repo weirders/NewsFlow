@@ -802,5 +802,6 @@ document.getElementById('refreshBtn').addEventListener('click', refresh);
 refresh();
 setInterval(refresh, CONFIG.refreshIntervalMs);
 </script>
+<script>/* offline shell: see sw.js */ if("serviceWorker" in navigator && location.protocol==="https:") navigator.serviceWorker.register("sw.js").catch(e=>console.warn("sw",e));</script>
 </body>
 </html>
