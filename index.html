@@ -137,6 +137,15 @@ h1{font-size:15px;font-weight:700;white-space:nowrap;margin-right:4px}
   #back-btn{display:flex !important}
 }
 #back-btn{display:none;align-items:center;gap:6px;padding:4px 0;margin-bottom:12px;background:none;border:none;cursor:pointer;color:var(--accent);font-size:13px}
+/* ---- Tool family (ToolDeck/STYLE.md): shared UI font, control shape and focus ring. Colours stay per app. ---- */
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+button,input,select,textarea{font-family:inherit}
+button:focus-visible,a:focus-visible,select:focus-visible,[role=menuitem]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#search,.hbtn,#toolbar select,.frame-btns a,.frame-btns button,.modal-footer button,#cfgTextarea{border-radius:8px}
+/* title mark: same colour as this app's card in ToolDeck */
+#header h1::before{content:"";display:inline-block;width:4px;height:1.05em;border-radius:2px;margin-right:8px;vertical-align:-.15em;background:#bc8cff}
+@media(max-width:480px){#header h1::before{display:none}} /* no room on a phone: the search box would wrap */
+/* ---- end tool family ---- */
 </style>
 </head>
 <body>
